@@ -7,7 +7,6 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import os
 
-
 def generate_launch_description():
     # Get URDF via xacro
     robot_description_content = Command(
