@@ -12,9 +12,11 @@ JOINT_NAME_LEAD = "leg_front_r_3"
 
 ####
 ####
-KP = 0.001  # YOUR KP VALUE
-KI = 0.00001 # YOUR KI VALUE
-KD = 0.00005  # YOUR KD VALUE
+
+KP = 2 # YOUR KP VALUE (the further you are from where you want to be, the harder you should try to get there.)
+KI = 0.27 # YOUR KI VALUE (the longer you haven’t been where you want to be, the harder you should try to get there.)
+KD = 0.11 # YOUR KD VALUE (if you’re quickly getting close to where you want to be, slow down.)
+
 
 ####
 ####
@@ -24,6 +26,7 @@ MAX_TORQUE = 2.0
 DEAD_BAND_SIZE = 0.095
 PENDULUM_CONTROL = False
 LEG_TRACKING_CONTROL = not PENDULUM_CONTROL
+
 
 
 class JointStateSubscriber(Node):
@@ -65,7 +68,7 @@ class JointStateSubscriber(Node):
             self.direction = -1
         if joint_pos < -0.10:
             self.direction = 1
-        torque = self.direction * 0.14
+        torque = self.direction *  4
 
         return torque
 
@@ -86,12 +89,17 @@ class JointStateSubscriber(Node):
         T_pid = T_pd + KI * self.sum_joint_error
         
         torque = T_pid
+        #print(torque)
+
         # Leave this code unchanged
-        if torque > 0:
+        if abs(torque) < 0.05:
+            torque = 0        
+        elif torque > 0:
             torque = max(torque, DEAD_BAND_SIZE)
+            torque = min(torque, MAX_TORQUE)
         elif torque < 0:
             torque = min(torque, -DEAD_BAND_SIZE)
-        
+            torque = max(torque, -MAX_TORQUE)
         return torque
 
     def print_info(self):
