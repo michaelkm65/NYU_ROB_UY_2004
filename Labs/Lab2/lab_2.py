@@ -100,7 +100,6 @@ class ForwardKinematics(Node):
 
     def translation(self, x, y, z):
         ## TODO: Implement the translation matrix
-        ## TODO: Implement the rotation matrix about the z-axis
         return np.array(
             [
                 [1, 0, 0, 0],
