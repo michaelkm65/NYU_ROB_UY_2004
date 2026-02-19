@@ -38,15 +38,20 @@ def plot_leg_path(data_dictionary):
     plt.ylabel('EE Z(m)')
     plt.show()
 
-    plt.plot(time_stamp_list,z_ee_f )
-    plt.title('End Effector Z vs Time')
+    plt.plot(time_stamp_list,x_ee_f, label="X axis" )
+    plt.plot(time_stamp_list,y_ee_f, label="Y axis" )
+
+    plt.plot(time_stamp_list,z_ee_f, label="Z axis" )
+
+    plt.title('End Effector vs Time (Restricting X)')
+    plt.legend() 
     plt.xlabel('Time(s)')
-    plt.ylabel('EE Z (m)')
+    plt.ylabel('EE Axis (m)')
     plt.show()
 
 
 
 ##### MAIN ######
-data_loader = DataLoader('./lab_2_datab.pkl')
+data_loader = DataLoader('./lab_2_data.pkl')
 data_dictionary = data_loader.load()
 plot_leg_path(data_dictionary)
