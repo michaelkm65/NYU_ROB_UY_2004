@@ -96,7 +96,8 @@ class InverseKinematics(Node):
             stand_position_3, liftoff_position, mid_swing_position, touch_down_position, stand_position_1, stand_position_2, stand_position_3
         ]) + lf_ee_offset
         
-        rb_ee_offset = np.array([-0.11, -0.09, 0])
+        # observing that the robot was fornt heavy, we moved up the back legs by 2cm
+        rb_ee_offset = np.array([-0.11, -0.09, 0.02])
         # back left leg
         rb_ee_triangle_positions = np.array([
             ################################################################################################
@@ -105,7 +106,7 @@ class InverseKinematics(Node):
             stand_position_3, liftoff_position, mid_swing_position, touch_down_position, stand_position_1, stand_position_2, stand_position_3
         ]) + rb_ee_offset
         
-        lb_ee_offset = np.array([-0.11, 0.09, 0])
+        lb_ee_offset = np.array([-0.11, 0.09, 0.02])
         # back right leg
         lb_ee_triangle_positions = np.array([
             ################################################################################################
