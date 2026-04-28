@@ -28,29 +28,29 @@ from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 
 from geometry_msgs.msg import Twist
-from vision_msgs.msg import Detection2DArray
+# from vision_msgs.msg import Detection2DArray
 
 
-IMAGE_WIDTH = 700  # pixels; matches the equirectangular image published by hailo_detection.py
-DEFAULT_LABELS_PATH = os.path.join(os.path.dirname(__file__), 'coco.txt')
-
-
-@dataclass
-class Detection:
-    """One detected object from the current frame."""
-    class_id: int
-    class_name: str
-    confidence: float
-    center_x: float  # pixels
-    center_y: float
-    size_x: float
-    size_y: float
-
-    @property
-    def normalized_x(self) -> float:
-        """Center x mapped to [-0.5, 0.5] (0 = image center, +0.5 = right edge)."""
-        return (self.center_x / IMAGE_WIDTH) - 0.5
-
+# IMAGE_WIDTH = 700  # pixels; matches the equirectangular image published by hailo_detection.py
+# # DEFAULT_LABELS_PATH = os.path.join(os.path.dirname(__file__), 'coco.txt')
+#
+#
+# @dataclass
+# class Detection:
+#     """One detected object from the current frame."""
+#     class_id: int
+#     class_name: str
+#     confidence: float
+#     center_x: float  # pixels
+#     center_y: float
+#     size_x: float
+#     size_y: float
+#
+#     @property
+#     def normalized_x(self) -> float:
+#         """Center x mapped to [-0.5, 0.5] (0 = image center, +0.5 = right edge)."""
+#         return (self.center_x / IMAGE_WIDTH) - 0.5
+#
 
 class PupperInterface(Node):
     """
@@ -66,16 +66,16 @@ class PupperInterface(Node):
         self._class_names = self._load_labels(labels_path)
 
         self._lock = threading.Lock()
-        self._latest_detections: List[Detection] = []
-        self._last_detection_time: Optional[Time] = None
+        # self._latest_detections: List[Detection] = []
+        # self._last_detection_time: Optional[Time] = None
 
         self._cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        self._detection_sub = self.create_subscription(
-            Detection2DArray,
-            '/detections',
-            self._detection_callback,
-            10,
-        )
+        # self._detection_sub = self.create_subscription(
+        #     Detection2DArray,
+        #     '/detections',
+        #     self._detection_callback,
+        #     10,
+        # )
 
     def _load_labels(self, path: str) -> List[str]:
         try:
@@ -91,44 +91,6 @@ class PupperInterface(Node):
         if 0 <= class_id < len(self._class_names):
             return self._class_names[class_id]
         return str(class_id)
-
-    # --- internal callback (runs on the spin thread) --------------------
-    def _detection_callback(self, msg: Detection2DArray):
-        dets: List[Detection] = []
-        for d in msg.detections:
-            if not d.results:
-                continue
-            hyp = d.results[0]
-            try:
-                class_id = int(hyp.hypothesis.class_id)
-            except ValueError:
-                class_id = -1
-            dets.append(Detection(
-                class_id=class_id,
-                class_name=self._lookup_class_name(class_id),
-                confidence=float(hyp.hypothesis.score),
-                center_x=float(d.bbox.center.position.x),
-                center_y=float(d.bbox.center.position.y),
-                size_x=float(d.bbox.size_x),
-                size_y=float(d.bbox.size_y),
-            ))
-        with self._lock:
-            self._latest_detections = dets
-            self._last_detection_time = self.get_clock().now()
-
-    # --- public API ------------------------------------------------------
-    def get_detections(self) -> List[Detection]:
-        """Snapshot of detections from the most recent frame (possibly empty)."""
-        with self._lock:
-            return list(self._latest_detections)
-
-    def seconds_since_last_detection(self) -> float:
-        """Seconds since the last detection frame; +inf if none received yet."""
-        with self._lock:
-            t = self._last_detection_time
-        if t is None:
-            return float('inf')
-        return (self.get_clock().now() - t).nanoseconds / 1e9
 
     def set_velocity(self, linear_x: float = 0.0, linear_y: float = 0.0,
                      angular_z: float = 0.0):
@@ -172,10 +134,10 @@ def main():
         while rclpy.ok() and not stop_requested.is_set():
 
             # Print out the current detections every loop iteration. 
-            detections = node.get_detections()
-            print(f"Got {len(detections)} detections:")
-            for det in detections:
-                print(f"  - {det.class_name} (id={det.class_id}, confidence: {det.confidence:.2f})")
+            # detections = node.get_detections()
+            # print(f"Got {len(detections)} detections:")
+            # for det in detections:
+            #     print(f"  - {det.class_name} (id={det.class_id}, confidence: {det.confidence:.2f})")
 
             # For now, just publish zero velocity to show how the API works. Replace this with your own control logic!
             node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0)  # move forward at 0.2 m/s
