@@ -28,6 +28,7 @@ from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Pose2D
 
 import csv
 
@@ -47,6 +48,31 @@ class PupperInterface(Node):
 
         self._cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
 
+        self._latest_pose: Optional[Pose2D] = None
+        self._last_detection_time: Optional[float] = None
+
+        self._pose_sub = self.create_subscription(
+            Pose2D,
+            '/aruco_pose',
+            self._pose_callback,
+            10
+        )
+
+    def _pose_callback(self, msg: Pose2D):
+        with self._lock:
+            self._latest_pose = msg
+            self._last_detection_time = time.time()
+
+    def get_pose(self):
+        with self._lock:
+            return self._latest_pose
+
+    def seconds_since_last_detection(self):
+        with self._lock:
+            if self._last_detection_time is None:
+                return float('inf')
+            return time.time() - self._last_detection_time
+    
     def set_velocity(self, linear_x: float = 0.0, linear_y: float = 0.0,
                      angular_z: float = 0.0):
         """Publish a body-frame velocity command to the RL controller.
@@ -67,7 +93,11 @@ def get_path(input):
         reader = csv.reader(file)
         next(reader)
         for row in reader:
-            path.append([row[0],row[1]])
+            x = float(row[0])
+            y = float(row[1])
+
+            path.append([x,y])
+
     return path
 
 def main():
@@ -84,7 +114,6 @@ def main():
     stop_requested = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_requested.set())
 
-    print(get_path('drawn_points.csv'))
 
     try:
         # ================================================================
@@ -95,8 +124,32 @@ def main():
         #   node.seconds_since_last_detection()  -> float
         #   node.set_velocity(linear_x, linear_y, angular_z)
         # ================================================================
+        path = get_path('drawn_points.csv')
 
         while rclpy.ok() and not stop_requested.is_set():
+            pose = node.get_pose()
+
+            if pose is None or node.seconds_since_last_detection() > 0.5:
+                node.set_velocity(0.0, 0.0, 0.0)
+                print("No recent ArUco pose. Stopping.")
+                time.sleep(0.05)
+                continue
+
+            x = pose.x
+            y = pose.y
+            theta = pose.theta
+
+            target_x, target_y = path[target_index]
+
+            dx = target_x - x
+            dy = target_y - y
+
+            dist = (dx**2 + dy**2)**0.5
+
+            if dist < 0.08 and target_index < len(path) - 1:
+                target_index += 1
+            
+            print("distance:", dist)
 
             node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
             print("set velocity executed")
