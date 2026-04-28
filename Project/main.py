@@ -29,6 +29,8 @@ from rclpy.time import Time
 
 from geometry_msgs.msg import Twist
 
+import csv
+
 
 class PupperInterface(Node):
     """
@@ -59,6 +61,14 @@ class PupperInterface(Node):
         cmd.angular.z = float(angular_z)
         self._cmd_pub.publish(cmd)
 
+def get_path(input):
+    path = []
+    with open(input, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            path.append([row[0],row[1]])
+    return path
 
 def main():
     # Disable rclpy's default SIGINT handler so Ctrl+C doesn't tear down the
@@ -74,6 +84,8 @@ def main():
     stop_requested = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_requested.set())
 
+    print(get_path('drawn_points.csv'))
+
     try:
         # ================================================================
         # TODO: control loop.
@@ -86,7 +98,7 @@ def main():
 
         while rclpy.ok() and not stop_requested.is_set():
 
-            node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0.5)  # move forward at 0.2 m/s
+            node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
             print("set velocity executed")
             time.sleep(0.1)
 
