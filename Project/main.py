@@ -28,29 +28,7 @@ from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 
 from geometry_msgs.msg import Twist
-# from vision_msgs.msg import Detection2DArray
 
-
-# IMAGE_WIDTH = 700  # pixels; matches the equirectangular image published by hailo_detection.py
-# # DEFAULT_LABELS_PATH = os.path.join(os.path.dirname(__file__), 'coco.txt')
-#
-#
-# @dataclass
-# class Detection:
-#     """One detected object from the current frame."""
-#     class_id: int
-#     class_name: str
-#     confidence: float
-#     center_x: float  # pixels
-#     center_y: float
-#     size_x: float
-#     size_y: float
-#
-#     @property
-#     def normalized_x(self) -> float:
-#         """Center x mapped to [-0.5, 0.5] (0 = image center, +0.5 = right edge)."""
-#         return (self.center_x / IMAGE_WIDTH) - 0.5
-#
 
 class PupperInterface(Node):
     """
@@ -60,37 +38,12 @@ class PupperInterface(Node):
     so that the main thread can grab a consistent snapshot at any time.
     """
 
-    def __init__(self, labels_path: str = DEFAULT_LABELS_PATH):
+    def __init__(self):
         super().__init__('pupper_interface_node')
 
-        self._class_names = self._load_labels(labels_path)
-
         self._lock = threading.Lock()
-        # self._latest_detections: List[Detection] = []
-        # self._last_detection_time: Optional[Time] = None
 
         self._cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        # self._detection_sub = self.create_subscription(
-        #     Detection2DArray,
-        #     '/detections',
-        #     self._detection_callback,
-        #     10,
-        # )
-
-    def _load_labels(self, path: str) -> List[str]:
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return f.read().splitlines()
-        except FileNotFoundError:
-            self.get_logger().warning(
-                f'Labels file not found at {path}; class_name will fall back to the numeric id.'
-            )
-            return []
-
-    def _lookup_class_name(self, class_id: int) -> str:
-        if 0 <= class_id < len(self._class_names):
-            return self._class_names[class_id]
-        return str(class_id)
 
     def set_velocity(self, linear_x: float = 0.0, linear_y: float = 0.0,
                      angular_z: float = 0.0):
@@ -133,14 +86,8 @@ def main():
 
         while rclpy.ok() and not stop_requested.is_set():
 
-            # Print out the current detections every loop iteration. 
-            # detections = node.get_detections()
-            # print(f"Got {len(detections)} detections:")
-            # for det in detections:
-            #     print(f"  - {det.class_name} (id={det.class_id}, confidence: {det.confidence:.2f})")
-
-            # For now, just publish zero velocity to show how the API works. Replace this with your own control logic!
-            node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0)  # move forward at 0.2 m/s
+            node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0.5)  # move forward at 0.2 m/s
+            print("set velocity executed")
             time.sleep(0.1)
 
     except Exception as e:
