@@ -125,7 +125,7 @@ def main():
         #   node.set_velocity(linear_x, linear_y, angular_z)
         # ================================================================
         path = get_path('drawn_points.csv')
-
+        target_index = 0
         while rclpy.ok() and not stop_requested.is_set():
             pose = node.get_pose()
 
@@ -151,7 +151,20 @@ def main():
             
             print("distance:", dist)
 
-            node.set_velocity(linear_x=0.0, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
+            k = 0.5
+
+            vx = k * dx
+            vy = k * dy
+            wz = 0.0
+
+            # clamp speeds
+            max_speed = 0.2
+            vx = max(-max_speed, min(max_speed, vx))
+            vy = max(-max_speed, min(max_speed, vy))
+
+            node.set_velocity(vx, vy, wz)
+
+            # node.set_velocity(linear_x=0.5, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
             print("set velocity executed")
             time.sleep(0.1)
 
