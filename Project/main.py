@@ -31,7 +31,7 @@ from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose2D
 
 import csv
-
+import math
 
 class PupperInterface(Node):
     """
@@ -137,7 +137,7 @@ def main():
 
             x = pose.x
             y = pose.y
-            theta = pose.theta
+            theta = pose.theta + math.pi/2
 
             target_x, target_y = path[target_index]
 
@@ -146,26 +146,49 @@ def main():
 
             dist = (dx**2 + dy**2)**0.5
 
-            if dist < 0.08 and target_index < len(path) - 1:
+            if dist < 30 and target_index < len(path) - 1:
                 target_index += 1
+
+            target_angle = math.atan2(dy, dx)
+            angle_error = target_angle - theta
+            angle_error = math.atan2(math.sin(angle_error), math.cos(angle_error))
+
             
             print("distance:", dist)
+            print("target index:", target_index)
 
-            k = 0.5
+            body_x = math.cos(theta) * dx + math.sin(theta) * dy
+            body_y = -math.sin(theta) * dx + math.cos(theta) * dy
 
-            vx = k * dx
-            vy = k * dy
-            wz = 0.0
+
+            k_forward = 0.2
+            k_turn = 0.2
+
+            max_wz = 0.8
+            wz = k_turn * angle_error
+
+            if abs(angle_error) < 0.5:
+                wz = 0
+                print("farts")
+
+            wz = max(-max_wz, min(max_wz, wz))
+
+            if abs(angle_error) < 5:
+                vx = k_forward * dist
+            else:
+                vx = 0.0
+
 
             # clamp speeds
-            max_speed = 0.2
+            max_speed = 0.4
             vx = max(-max_speed, min(max_speed, vx))
-            vy = max(-max_speed, min(max_speed, vy))
+            vy = 0
 
-            node.set_velocity(vx, vy, wz)
+            node.set_velocity(vx, 0, wz)
 
             # node.set_velocity(linear_x=0.5, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
-            print("set velocity executed")
+            print(f"vx: {vx}, vy: {vy}, wz: {wz}")
+            print(f"angle error: {angle_error}")
             time.sleep(0.1)
 
     except Exception as e:
