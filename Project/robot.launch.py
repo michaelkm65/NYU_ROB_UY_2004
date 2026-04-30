@@ -1,3 +1,6 @@
+import argparse
+import sys
+
 from launch import LaunchDescription
 from launch.actions import RegisterEventHandler
 from launch.event_handlers import OnProcessExit
@@ -31,14 +34,28 @@ def generate_launch_description():
         parameters=[robot_description],
     )
 
-    # Use custom trained model config instead of default
-    robot_controllers = ParameterFile(
-        PathJoinSubstitution(
+    default_controller = PathJoinSubstitution(
+            [
+                FindPackageShare("neural_controller"),
+                "launch",
+                "config.yaml",
+            ]
+        )
+    custom_controller = PathJoinSubstitution(
             [
                 ThisLaunchFileDir(),
                 "custom_config.yaml",
             ]
-        ),
+        )
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--custom', action='store_true', help='Use custom controller config')
+    args, _ = parser.parse_known_args(sys.argv[1:])
+
+    controller = custom_controller if args.custom else default_controller
+    # Use custom trained model config instead of default when requested
+    robot_controllers = ParameterFile(
+        controller,
         allow_substs=True,
     )
 
