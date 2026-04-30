@@ -113,7 +113,9 @@ def main():
 
     stop_requested = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_requested.set())
-
+    
+    crab_rave_counter = 0
+    crab_rave_toggle = False
 
     try:
         # ================================================================
@@ -203,13 +205,16 @@ def main():
                 vy = 0
                 wz = 0
 
-            node.set_velocity(vx, 0, wz)
-            # node.set_velocity(1, 0, 0)
+            # node.set_velocity(vx, 0, wz)
+            if crab_rave_toggle:
+                crab_rave = 0.3 if crab_rave_counter % 2 == 0 else -0.3
+                node.set_velocity(0, crab_rave, 0)
+                crab_rave_counter+=1
 
             # node.set_velocity(linear_x=0.5, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
             print(f"vx: {vx}, vy: {vy}, wz: {wz}")
             print(f"angle error: {angle_error}")
-            time.sleep(0.1)
+            time.sleep(1 if crab_rave_toggle else 0.1)
 
     except Exception as e:
         node.get_logger().error(f'Main loop error: {e}')
