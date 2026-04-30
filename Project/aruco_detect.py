@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Replace with the IP address displayed on your phone's IP Webcam app
-url = 'http://10.20.110.172:8080/video'
+url = 'http://10.20.108.207:8080/video'
 
 # Initialize ArUco detector
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)

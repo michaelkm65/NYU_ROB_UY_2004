@@ -5,7 +5,7 @@ from collections import defaultdict
 import csv
 
 # Replace with the IP address displayed on your phone's IP Webcam app
-url = 'http://10.20.5.63:8080/video'
+url = 'http://10.20.108.207:8080/video'
 
 # Initialize ArUco detector
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)

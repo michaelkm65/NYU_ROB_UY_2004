@@ -137,7 +137,7 @@ def main():
 
             x = pose.x
             y = pose.y
-            theta = pose.theta + math.pi/2
+            theta = pose.theta - math.pi/2
 
             target_x, target_y = path[target_index]
 
@@ -161,19 +161,23 @@ def main():
             body_y = -math.sin(theta) * dx + math.cos(theta) * dy
 
 
-            k_forward = 0.2
-            k_turn = 0.2
+            k_forward = 0.005
+            k_turn = 0.5
 
-            max_wz = 0.8
-            wz = k_turn * angle_error
-
-            if abs(angle_error) < 0.5:
-                wz = 0
-                print("farts")
+            max_wz = 3
+            
+            # Handle the 180-degree case: when facing away, commit to a turn direction
+            if abs(angle_error) > 3:  # Close to ±π radians
+                # Pick the direction (left or right) and commit
+                wz = -max_wz if angle_error > 0 else max_wz
+            else:
+                wz = -k_turn * angle_error
+                if abs(angle_error) < 0.35:
+                    wz = 0
 
             wz = max(-max_wz, min(max_wz, wz))
 
-            if abs(angle_error) < 5:
+            if abs(angle_error) < 0.35:
                 vx = k_forward * dist
             else:
                 vx = 0.0
@@ -181,10 +185,26 @@ def main():
 
             # clamp speeds
             max_speed = 0.4
-            vx = max(-max_speed, min(max_speed, vx))
+            min_speed = 0.075
+            print(vx)
+
+            if vx > max_speed:
+                vx = max_speed
+            elif vx < min_speed/3:
+                vx = 0
+            elif vx < min_speed:
+                vx = min_speed
+            
+
             vy = 0
 
+            if dist < 20:
+                vx = 0
+                vy = 0
+                wz = 0
+
             node.set_velocity(vx, 0, wz)
+            # node.set_velocity(1, 0, 0)
 
             # node.set_velocity(linear_x=0.5, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
             print(f"vx: {vx}, vy: {vy}, wz: {wz}")

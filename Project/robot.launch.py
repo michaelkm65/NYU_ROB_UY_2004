@@ -31,13 +31,12 @@ def generate_launch_description():
         parameters=[robot_description],
     )
 
-    # Use neural_controller package config (same as lab_6)
+    # Use custom trained model config instead of default
     robot_controllers = ParameterFile(
         PathJoinSubstitution(
             [
-                FindPackageShare("neural_controller"),
-                "launch",
-                "config.yaml",
+                ThisLaunchFileDir(),
+                "custom_config.yaml",
             ]
         ),
         allow_substs=True,
