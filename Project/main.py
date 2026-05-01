@@ -130,6 +130,20 @@ def main():
         # ================================================================
         path = get_path('drawn_points.csv')
         target_index = 0
+        
+        # Integral tracking for PI controller
+        integral_dist = 0.0
+        integral_angle = 0.0
+        last_time = time.time()
+        
+        # Small I gains (P is working well, I just helps eliminate steady-state error)
+        ki_forward = 0
+        ki_turn = 0
+        
+        # Anti-windup limits
+        max_integral_dist = 0.5
+        max_integral_angle = 1.0
+        
         while rclpy.ok() and not stop_requested.is_set():
             pose = node.get_pose()
 
@@ -138,6 +152,11 @@ def main():
                 print("No recent ArUco pose. Stopping.")
                 time.sleep(0.05)
                 continue
+
+            # Calculate time delta for integral term
+            current_time = time.time()
+            dt = current_time - last_time
+            last_time = current_time
 
             x = pose.x
             y = pose.y
@@ -150,7 +169,7 @@ def main():
 
             dist = (dx**2 + dy**2)**0.5
             
-            step = 7
+            step = 1
             if dist < 30 and target_index < len(path) - 1 - step:
                 target_index += step
             elif dist < 30 and target_index < len(path) - 1:
@@ -164,26 +183,41 @@ def main():
             print("distance:", dist)
 
             k_forward = 0.0035
-            k_turn = 1.5
+            k_turn = 1.9
             max_wz = 3
+            
+            # Proportional component for turn
+            p_turn = -k_turn * angle_error
+            
+            # Integral component for turn (with anti-windup)
+            integral_angle += angle_error * dt
+            integral_angle = max(-max_integral_angle, min(max_integral_angle, integral_angle))
+            i_turn = ki_turn * integral_angle
             
             # Handle the 180-degree case: when facing away, commit to a turn direction
             if abs(angle_error) > 3:  # Close to ±π radians
                 # Pick the direction (left or right) and commit
                 wz = -max_wz if angle_error > 0 else max_wz
                 time.sleep(0.5)
+                integral_angle = 0.0  # Reset integral when doing hard turn
             else:
-                wz = -k_turn * angle_error
+                wz = p_turn + i_turn
 
             wz = max(-max_wz, min(max_wz, wz))
 
-            # Always move forward, but scale speed based on alignment
-            # Use cosine of angle error to smoothly reduce forward speed when not aligned
+            # Proportional and Integral component for forward speed
             alignment_factor = max(0, math.cos(angle_error))
-            vx = k_forward * dist * alignment_factor
+            p_forward = k_forward * dist * alignment_factor
+            
+            # Integral component for distance (with anti-windup)
+            integral_dist += dist * dt
+            integral_dist = max(-max_integral_dist, min(max_integral_dist, integral_dist))
+            i_forward = ki_forward * integral_dist
+            
+            vx = p_forward + i_forward
 
             # clamp speeds
-            max_speed = 0.4
+            max_speed = 0.6
             min_speed = 0.075
 
             if vx > max_speed:
@@ -196,10 +230,12 @@ def main():
 
             vy = 0
 
-            if dist < 30:
+            if dist < 25:
                 vx = 0
                 vy = 0
                 wz = 0
+                integral_dist = 0.0
+                integral_angle = 0.0
                 print("Target reached. Stopping.")
 
             node.set_velocity(vx, 0, wz)
