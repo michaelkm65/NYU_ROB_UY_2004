@@ -16,7 +16,9 @@ class ArucoPosePublisher(Node):
 
         self.pose_pub = self.create_publisher(Pose2D, '/aruco_pose', 10)
 
+        # self.url = 'http://10.20.5.63:8080/video'
         self.url = 'http://10.20.108.207:8080/video'
+
         self.cap = cv2.VideoCapture(self.url)
 
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)

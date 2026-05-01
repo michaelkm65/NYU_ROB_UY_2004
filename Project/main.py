@@ -21,6 +21,8 @@ import time
 from dataclasses import dataclass
 from typing import List, Optional
 
+from matplotlib.pyplot import step
+
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import SingleThreadedExecutor
@@ -119,37 +121,15 @@ def main():
 
     try:
         # ================================================================
-        # PID Controller Setup
+        # TODO: control loop.
+        #
+        # Available:
+        #   node.get_detections()                -> list[Detection]
+        #   node.seconds_since_last_detection()  -> float
+        #   node.set_velocity(linear_x, linear_y, angular_z)
         # ================================================================
         path = get_path('drawn_points.csv')
         target_index = 0
-        
-        # PID gains for linear velocity control
-        kp_dist = 0.003
-        ki_dist = 0.0001
-        kd_dist = 0.001
-        
-        # PID gains for angular velocity control
-        kp_angle = 1.5
-        ki_angle = 0.05
-        kd_angle = 0.2
-
-        # PID state variables
-        integral_dist = 0.0
-        prev_dist_error = 0.0
-        integral_angle = 0.0
-        prev_angle_error = 0.0
-        last_time = time.time()
-        
-        # Anti-windup limits
-        max_integral_dist = 0.5
-        max_integral_angle = 1.5
-        
-        # Output limits
-        max_vx = 0.4
-        min_vx = 0.1
-        max_wz = 3.0
-        
         while rclpy.ok() and not stop_requested.is_set():
             pose = node.get_pose()
 
@@ -159,11 +139,6 @@ def main():
                 time.sleep(0.05)
                 continue
 
-            # Calculate time delta
-            current_time = time.time()
-            dt = current_time - last_time
-            last_time = current_time
-            
             x = pose.x
             y = pose.y
             theta = pose.theta - math.pi/2
@@ -174,91 +149,71 @@ def main():
             dy = target_y - y
 
             dist = (dx**2 + dy**2)**0.5
-
-            if dist < 30 and target_index < len(path) - 1:
+            
+            step = 7
+            if dist < 30 and target_index < len(path) - 1 - step:
+                target_index += step
+            elif dist < 30 and target_index < len(path) - 1:
                 target_index += 1
 
             target_angle = math.atan2(dy, dx)
             angle_error = target_angle - theta
             angle_error = math.atan2(math.sin(angle_error), math.cos(angle_error))
 
+            
             print("distance:", dist)
-            print("target index:", target_index)
 
-            # ================================================================
-            # PID Controller for Distance (linear velocity)
-            # ================================================================
-            dist_error = dist
+            k_forward = 0.0035
+            k_turn = 1.5
+            max_wz = 3
             
-            # Proportional term
-            p_dist = kp_dist * dist_error
-            
-            # Integral term (with anti-windup)
-            integral_dist += dist_error * dt
-            integral_dist = max(-max_integral_dist, min(max_integral_dist, integral_dist))
-            i_dist = ki_dist * integral_dist
-            
-            # Derivative term
-            d_dist = kd_dist * (dist_error - prev_dist_error) / dt if dt > 0 else 0
-            prev_dist_error = dist_error
-            
-            # PID output for velocity (negate for correct direction)
-            vx = -(p_dist + i_dist + d_dist)
-            
-            # ================================================================
-            # PID Controller for Angle (angular velocity)
-            # ================================================================
-            
-            # Proportional term
-            p_angle = kp_angle * angle_error
-            
-            # Integral term (with anti-windup)
-            integral_angle += angle_error * dt
-            integral_angle = max(-max_integral_angle, min(max_integral_angle, integral_angle))
-            i_angle = ki_angle * integral_angle
-            
-            # Derivative term
-            d_angle = kd_angle * (angle_error - prev_angle_error) / dt if dt > 0 else 0
-            prev_angle_error = angle_error
-            
-            # PID output for angular velocity (negate for correct direction)
-            wz = -(p_angle + i_angle + d_angle)
-            
-            # ================================================================
-            # Output Limiting
-            # ================================================================
-            
-            # Limit linear velocity
-            if abs(angle_error) > 0.35:  # Don't move forward if not aligned
-                vx = 0.0
+            # Handle the 180-degree case: when facing away, commit to a turn direction
+            if abs(angle_error) > 3:  # Close to ±π radians
+                # Pick the direction (left or right) and commit
+                wz = -max_wz if angle_error > 0 else max_wz
+                time.sleep(0.5)
             else:
-                if vx > max_vx:
-                    vx = max_vx
-                # elif vx < min_vx / 3:
-                #     vx = 0.0
-                elif vx < min_vx:
-                    vx = min_vx
-            
-            # Limit angular velocity
+                wz = -k_turn * angle_error
+
             wz = max(-max_wz, min(max_wz, wz))
+
+            # Always move forward, but scale speed based on alignment
+            # Use cosine of angle error to smoothly reduce forward speed when not aligned
+            alignment_factor = max(0, math.cos(angle_error))
+            vx = k_forward * dist * alignment_factor
+
+            # clamp speeds
+            max_speed = 0.4
+            min_speed = 0.075
+
+            if vx > max_speed:
+                vx = max_speed
+            elif vx < min_speed/3:
+                vx = 0
+            elif vx < min_speed:
+                vx = min_speed
             
-            # Stop if close to target
-            if dist < 20:
-                vx = 0.0
-                wz = 0.0
-                integral_dist = 0.0
-                integral_angle = 0.0
+
+            vy = 0
+
+            if dist < 30:
+                vx = 0
+                vy = 0
+                wz = 0
+                print("Target reached. Stopping.")
 
             node.set_velocity(vx, 0, wz)
             if crab_rave_toggle:
                 crab_rave = 0.3 if crab_rave_counter % 2 == 0 else -0.3
                 node.set_velocity(0, crab_rave, 0)
-                crab_rave_counter += 1
+                crab_rave_counter+=1
 
-            print(f"vx: {vx:.3f}, wz: {wz:.3f}")
-            print(f"angle error: {angle_error:.3f}, dist error: {dist:.3f}")
-            print(f"P: {p_dist:.3f}, I: {i_dist:.3f}, D: {d_dist:.3f}")
-            time.sleep(1 if crab_rave_toggle else 0.05)
+            # node.set_velocity(linear_x=0.5, linear_y=0.0, angular_z=0.0)  # move forward at 0.2 m/s
+            print(f"vx: {vx}, vy: {vy}, wz: {wz}")
+            print(f"angle error: {angle_error}")
+            time.sleep(1 if crab_rave_toggle else 0.1)
+            node.set_velocity(0, 0, 0)
+
 
     except Exception as e:
         node.get_logger().error(f'Main loop error: {e}')

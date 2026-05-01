@@ -53,6 +53,7 @@ def generate_launch_description():
     args, _ = parser.parse_known_args(sys.argv[1:])
 
     controller = custom_controller if args.custom else default_controller
+    controller = custom_controller
     # Use custom trained model config instead of default when requested
     robot_controllers = ParameterFile(
         controller,
